@@ -54,17 +54,4 @@ public class CarShop implements Runnable {
         }
     }
 
-    public Car peekCar() {
-        synchronized (cars) {
-            if (cars.isEmpty()) {
-                try {
-                    cars.wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
-            return cars.peek();
-        }
-    }
-
 }

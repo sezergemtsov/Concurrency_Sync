@@ -11,7 +11,7 @@
     <modules>
         <module>Problem1_Auto</module>
         <module>Problem2_Auto2</module>
-        <module>Problem3_Restorant</module>
+        <module>Problem3_Restaurant</module>
     </modules>
 
     <properties>

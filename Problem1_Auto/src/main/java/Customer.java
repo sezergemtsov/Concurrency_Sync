@@ -14,9 +14,9 @@ public class Customer implements Runnable {
 
     @Override
     public void run() {
-        System.out.println(name + " come to car shop");
 
         while (carShop.isMore==true) {
+            System.out.println(name + " come to car shop");
             System.out.println(name + " went out on new " + carShop.popCar());
             try {
                 Thread.sleep(waitingTime);
