@@ -34,7 +34,7 @@ public class Waiter implements Runnable {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            serveReadyDish(visitor);
+            serveReadyDish();
             try {
                 Thread.sleep(operationTime);
             } catch (InterruptedException e) {
@@ -45,39 +45,35 @@ public class Waiter implements Runnable {
 
     void takeReadyDish() {
 
+        restaurant.lock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (restaurant.visitors) {
-                synchronized (restaurant.readyDishes) {
-                    if (restaurant.readyDishes.isEmpty()) {
-                        try {
-                            restaurant.readyDishes.wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    restaurant.visitors.forEach(x -> {
-                        if (restaurant.readyDishes.containsKey(x)) {
-                            visitor = x;
-                        }
-                    });
-                    dish = restaurant.readyDishes.remove(visitor);
-                }
+            while (restaurant.readyDishes.isEmpty()) {
+                restaurant.isReady.await();
             }
+            restaurant.visitors.forEach(x -> {
+                if (restaurant.readyDishes.containsKey(x)) {
+                    visitor = x;
+                }
+            });
+            dish = restaurant.readyDishes.remove(visitor);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         } finally {
-            restaurant.lock.unlock();
+            if (restaurant.lock.isHeldByCurrentThread()) {
+                restaurant.lock.unlock();
+            }
         }
     }
 
-    void serveReadyDish(Visitor visitor) {
+    void serveReadyDish() {
+        visitor.vLock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (visitor.table) {
-                visitor.table.add(dish);
-                visitor.table.notify();
-            }
+            visitor.table.add(dish);
+            visitor.isOnTable.signalAll();
         } finally {
-            restaurant.lock.unlock();
+            if (visitor.vLock.isHeldByCurrentThread()) {
+                visitor.vLock.unlock();
+            }
         }
     }
 

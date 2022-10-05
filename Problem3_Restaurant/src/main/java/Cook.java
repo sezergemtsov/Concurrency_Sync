@@ -35,43 +35,35 @@ public class Cook implements Runnable {
     }
 
     void startCooking() {
-
+        restaurant.lock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (restaurant.orders) {
-                synchronized (restaurant.visitorsMakeOrder) {
-                    if (restaurant.orders.isEmpty()) {
-                        try {
-                            restaurant.orders.wait();
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    visitor = restaurant.visitorsMakeOrder.pop();
-                    dish = restaurant.orders.remove(visitor);
-                    restaurant.visitorsMakeOrder.notify();
-                    restaurant.orders.notify();
-                }
+            while (restaurant.orders.isEmpty()) {
+                restaurant.isOrder.await();
             }
+            visitor = restaurant.visitorsMakeOrder.pop();
+            dish = restaurant.orders.remove(visitor);
+
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         } finally {
-            restaurant.lock.unlock();
+            if (restaurant.lock.isHeldByCurrentThread()) {
+                restaurant.lock.unlock();
+            }
         }
 
     }
 
     void finishCooking() {
-
+        restaurant.lock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (restaurant.readyDishes) {
-                restaurant.readyDishes.put(visitor, dish);
-                System.out.println(name + " complete " + dish);
-                restaurant.readyDishes.notify();
-            }
+            restaurant.readyDishes.put(visitor, dish);
+            System.out.println(name + " complete " + dish);
+            restaurant.isReady.signalAll();
         } finally {
-            restaurant.lock.unlock();
+            if (restaurant.lock.isHeldByCurrentThread()) {
+                restaurant.lock.unlock();
+            }
         }
-
     }
 
 }

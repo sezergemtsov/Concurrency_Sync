@@ -1,10 +1,15 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Visitor implements Runnable {
 
     static int qnt = 1;
     protected List<Dish> table = new ArrayList<>();
+
+    ReentrantLock vLock = new ReentrantLock();
+    Condition isOnTable = vLock.newCondition();
     Thread t;
     String name;
     Restaurant restaurant;
@@ -38,66 +43,58 @@ public class Visitor implements Runnable {
     }
 
     void enter() {
+        restaurant.lock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (restaurant.visitors) {
-                restaurant.visitors.add(this);
-                restaurant.visitors.notify();
-            }
+            restaurant.visitors.add(this);
         } finally {
-            restaurant.lock.unlock();
+            if (restaurant.lock.isHeldByCurrentThread()) {
+                restaurant.lock.unlock();
+            }
         }
-
     }
 
     Dish toOrder() {
-
+        restaurant.lock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (restaurant.orders) {
-                synchronized (restaurant.visitorsMakeOrder) {
-                    Dish dish = new Dish();
-                    restaurant.orders.put(this, dish);
-                    restaurant.visitorsMakeOrder.add(this);
-                    restaurant.orders.notify();
-                    return new Dish();
-                }
+            Dish dish = new Dish();
+            restaurant.orders.put(this, dish);
+            restaurant.visitorsMakeOrder.add(this);
+            restaurant.isOrder.signalAll();
+            return new Dish();
+        }finally {
+            if (restaurant.lock.isHeldByCurrentThread()) {
+                restaurant.lock.unlock();
             }
-        } finally {
-            restaurant.lock.unlock();
         }
-
     }
 
     void toEat() {
-        try{
-            restaurant.lock.lock();
-            synchronized (this.table) {
-                if (table.isEmpty()) {
-                    try {
-                        table.wait();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
+        vLock.lock();
+        try {
+            while (table.isEmpty()) {
+                isOnTable.await();
                 Dish dish = table.get(0);
                 System.out.println(name + " is eating " + dish);
             }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         } finally {
-            restaurant.lock.unlock();
+            if (vLock.isHeldByCurrentThread()) {
+                vLock.unlock();
+            }
         }
     }
 
     void toLeave() {
+
+        restaurant.lock.lock();
         try {
-            restaurant.lock.lock();
-            synchronized (restaurant.visitors) {
-                restaurant.visitors.remove(this);
-                System.out.println(name + " leave the restaurant");
-                restaurant.visitors.notify();
-            }
+            restaurant.visitors.remove(this);
+            System.out.println(name + " leave the restaurant");
         } finally {
-            restaurant.lock.unlock();
+            if (restaurant.lock.isHeldByCurrentThread()) {
+                restaurant.lock.unlock();
+            }
         }
     }
 
