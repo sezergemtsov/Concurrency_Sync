@@ -40,6 +40,7 @@ public class Visitor implements Runnable {
             e.printStackTrace();
         }
         toLeave();
+        t.interrupt();
     }
 
     void enter() {
@@ -60,7 +61,7 @@ public class Visitor implements Runnable {
             restaurant.orders.put(this, dish);
             restaurant.visitorsMakeOrder.add(this);
             restaurant.isOrder.signalAll();
-            return new Dish();
+            return dish;
         }finally {
             if (restaurant.lock.isHeldByCurrentThread()) {
                 restaurant.lock.unlock();
@@ -91,6 +92,7 @@ public class Visitor implements Runnable {
         try {
             restaurant.visitors.remove(this);
             System.out.println(name + " leave the restaurant");
+            restaurant.isVisitors.signalAll();
         } finally {
             if (restaurant.lock.isHeldByCurrentThread()) {
                 restaurant.lock.unlock();

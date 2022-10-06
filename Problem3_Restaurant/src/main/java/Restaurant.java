@@ -11,10 +11,13 @@ public class Restaurant {
     public Map<Visitor,Dish> readyDishes;
     public Deque<Visitor> visitors;
     public Deque<Visitor> visitorsMakeOrder;
+    public Deque<Visitor> visitorsReadyToServe;
+    public boolean isMoreVisitors;
 
     public ReentrantLock lock;
     public Condition isOrder;
     public Condition isReady;
+    public Condition isVisitors;
 
     public Restaurant() {
         orders = new HashMap<>();
@@ -24,5 +27,16 @@ public class Restaurant {
         lock = new ReentrantLock(true);
         isOrder = lock.newCondition();
         isReady = lock.newCondition();
+        isVisitors = lock.newCondition();
+        visitorsReadyToServe = new ArrayDeque<>();
+        isMoreVisitors = true;
+    }
+    public boolean close() {
+        if (!visitors.isEmpty()) {
+            return false;
+        } else {
+            isMoreVisitors = false;
+            return true;
+        }
     }
 }

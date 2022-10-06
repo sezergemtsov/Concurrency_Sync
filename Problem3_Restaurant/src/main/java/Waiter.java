@@ -1,3 +1,5 @@
+import java.util.concurrent.TimeUnit;
+
 public class Waiter implements Runnable {
 
     static int qnt = 1;
@@ -22,13 +24,15 @@ public class Waiter implements Runnable {
 
     @Override
     public void run() {
-        while (true) {
+        while (restaurant.isMoreVisitors) {
             try {
                 Thread.sleep(operationTime);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            takeReadyDish();
+            if (!takeReadyDish()) {
+                continue;
+            }
             try {
                 Thread.sleep(operationTime);
             } catch (InterruptedException e) {
@@ -41,20 +45,20 @@ public class Waiter implements Runnable {
                 e.printStackTrace();
             }
         }
+        System.out.println(name + " went home");
     }
 
-    void takeReadyDish() {
+    boolean takeReadyDish() {
 
         restaurant.lock.lock();
         try {
             while (restaurant.readyDishes.isEmpty()) {
-                restaurant.isReady.await();
-            }
-            restaurant.visitors.forEach(x -> {
-                if (restaurant.readyDishes.containsKey(x)) {
-                    visitor = x;
+                restaurant.isReady.await(10, TimeUnit.SECONDS);
+                if (restaurant.readyDishes.isEmpty()) {
+                    return false;
                 }
-            });
+            }
+            visitor = restaurant.visitorsReadyToServe.pop();
             dish = restaurant.readyDishes.remove(visitor);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
@@ -63,6 +67,7 @@ public class Waiter implements Runnable {
                 restaurant.lock.unlock();
             }
         }
+        return true;
     }
 
     void serveReadyDish() {
@@ -70,6 +75,7 @@ public class Waiter implements Runnable {
         try {
             visitor.table.add(dish);
             visitor.isOnTable.signalAll();
+            System.out.println(this.name + " served " + dish + " to " + visitor.name);
         } finally {
             if (visitor.vLock.isHeldByCurrentThread()) {
                 visitor.vLock.unlock();

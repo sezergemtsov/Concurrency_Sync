@@ -15,9 +15,20 @@ public class Main {
         }
 
         List<Visitor> visitors = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
-            visitors.add(new Visitor(restaurant));
-            Thread.sleep(5000);
+        for (int i = 0; i < 11; i++) {
+            if (i == 10) {
+                restaurant.lock.lock();
+                try {
+                    while (!restaurant.close()) {
+                        restaurant.isVisitors.await();
+                    }
+                } finally {
+                    restaurant.lock.unlock();
+                }
+            } else {
+                visitors.add(new Visitor(restaurant));
+                Thread.sleep(5000);
+            }
         }
 
     }

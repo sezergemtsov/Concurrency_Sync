@@ -1,3 +1,5 @@
+import java.util.concurrent.TimeUnit;
+
 public class Cook implements Runnable {
 
     static int qnt = 1;
@@ -23,8 +25,10 @@ public class Cook implements Runnable {
 
     @Override
     public void run() {
-        while (true) {
-            startCooking();
+        while (restaurant.isMoreVisitors) {
+            if (!startCooking()) {
+                continue;
+            }
             try {
                 Thread.sleep(operationTime);
             } catch (InterruptedException e) {
@@ -32,13 +36,17 @@ public class Cook implements Runnable {
             }
             finishCooking();
         }
+        System.out.println(name + " went home");
     }
 
-    void startCooking() {
+    boolean startCooking() {
         restaurant.lock.lock();
         try {
             while (restaurant.orders.isEmpty()) {
-                restaurant.isOrder.await();
+                restaurant.isOrder.await(10, TimeUnit.SECONDS);
+                if (restaurant.orders.isEmpty()) {
+                    return false;
+                }
             }
             visitor = restaurant.visitorsMakeOrder.pop();
             dish = restaurant.orders.remove(visitor);
@@ -50,13 +58,14 @@ public class Cook implements Runnable {
                 restaurant.lock.unlock();
             }
         }
-
+        return true;
     }
 
     void finishCooking() {
         restaurant.lock.lock();
         try {
             restaurant.readyDishes.put(visitor, dish);
+            restaurant.visitorsReadyToServe.add(visitor);
             System.out.println(name + " complete " + dish);
             restaurant.isReady.signalAll();
         } finally {
